@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI GitHub Project Assistant</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            200: '#c7d2fe',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                            800: '#3730a3',
+                            900: '#312e81',
+                            950: '#1e1b4b',
+                        },
+                        dark: {
+                            800: '#111827',
+                            900: '#0b0f19',
+                            950: '#070a13',
+                            card: '#151c2c',
+                            cardHover: '#1d273d',
+                            border: '#243049'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Google Fonts: Inter, Outfit, Fira Code (Monospace) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- React & React DOM (Production) -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    
+    <!-- Babel Compiler for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Axios for API communication -->
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    
+    <!-- Marked for Markdown rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #070a13; /* dark-950 */
+            color: #e2e8f0;
+        }
+        h1, h2, h3, h4, h5, h6 {
+            font-family: 'Outfit', sans-serif;
+        }
+        code, pre {
+            font-family: 'Fira Code', monospace;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0b0f19;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #243049;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4f46e5;
+        }
+        
+        /* Markdown rendering styles */
+        .markdown-body h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+            color: #ffffff;
+            border-bottom: 1px solid #243049;
+            padding-bottom: 0.25rem;
+        }
+        .markdown-body h2 {
+            font-size: 1.35rem;
+            font-weight: 600;
+            margin-top: 1.25rem;
+            margin-bottom: 0.5rem;
+            color: #f1f5f9;
+        }
+        .markdown-body h3 {
+            font-size: 1.15rem;
+            font-weight: 600;
+            margin-top: 1rem;
+            margin-bottom: 0.5rem;
+            color: #e2e8f0;
+        }
+        .markdown-body p {
+            margin-bottom: 0.75rem;
+            line-height: 1.625;
+            color: #cbd5e1;
+        }
+        .markdown-body ul, .markdown-body ol {
+            margin-bottom: 0.75rem;
+            padding-left: 1.5rem;
+            list-style-type: disc;
+        }
+        .markdown-body li {
+            margin-bottom: 0.25rem;
+            line-height: 1.5;
+            color: #cbd5e1;
+        }
+        .markdown-body pre {
+            background-color: #0b0f19;
+            padding: 1rem;
+            border-radius: 0.375rem;
+            overflow-x: auto;
+            margin-bottom: 0.75rem;
+            border: 1px solid #243049;
+        }
+        .markdown-body code {
+            background-color: #0b0f19;
+            color: #f43f5e;
+            padding: 0.125rem 0.25rem;
+            border-radius: 0.25rem;
+            font-size: 0.875rem;
+        }
+        .markdown-body pre code {
+            background-color: transparent;
+            color: #e2e8f0;
+            padding: 0;
+            font-size: 0.875rem;
+        }
+        .markdown-body blockquote {
+            border-left: 4px solid #4f46e5;
+            padding-left: 1rem;
+            color: #94a3b8;
+            font-style: italic;
+            margin: 0.75rem 0;
+        }
+        .markdown-body a {
+            color: #6366f1;
+            text-decoration: none;
+        }
+        .markdown-body a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body class="min-h-screen relative overflow-x-hidden">
+    <!-- Glowing background blobs -->
+    <div class="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-600/10 blur-[120px] pointer-events-none"></div>
+    <div class="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-violet-600/10 blur-[120px] pointer-events-none"></div>
+
+    <div id="root"></div>
+
+    <!-- React app script containing UI components -->
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // Custom Inline SVGs for consistent and robust rendering
+        const Icon = ({ name, className = "w-5 h-5", ...props }) => {
+            const icons = {
+                github: (
+                    <svg fill="currentColor" viewBox="0 0 24 24" className={className} {...props}>
+                        <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.579.688.481C19.137 20.162 22 16.418 22 12c0-5.523-4.477-10-10-10z" />
+                    </svg>
+                ),
+                search: (
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className} {...props}>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                ),
+                terminal: (
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className} {...props}>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                ),
+                folder: (
+                    <svg fill="currentColor" viewBox="0 0 20 20" className={`${className} text-yellow-500`} {...props}>
+                        <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+                    </svg>
+                ),
+                folderOpen: (
+                    <svg fill="currentColor" viewBox="0 0 20 20" className={`${className} text-yellow-500`} {...props}>
+                        <path fillRule="evenodd" d="M2 6a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1H2V6zm0 3v7a2 2 0 002 2h12a2 2 0 002-2V9H2z" clipRule="evenodd" />
+                    </svg>
+                ),
+                file: (
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={`${className} text-slate-400`} {...props}>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                ),
+                chevronRight: (
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className} {...props}>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                ),
+                chevronDown: (
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className} {...props}>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                ),
+                star: (
+                    <svg fill="currentColor" viewBox="0 0 20 20" className={`${className} text-amber-400`} {...props}>
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                    </svg>
+                ),
+                fork: (
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className} {...props}>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7a3 3 0 100-6 3 3 0 000 6zM8 7v7a4 4 0 004 4h4m0 0a3 3 0 100-6 3 3 0 000 6zM8 14H4m0 0a3 3 0 100-6 3 3 0 000 6z" />
+                    </svg>
+                ),
+                info: (
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className} {...props}>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                ),
+                sparkles: (
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className} {...props}>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                    </svg>
+                ),
+                bubble: (
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className} {...props}>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                ),
+                shieldAlert: (
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className} {...props}>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                ),
+                copy: (
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className} {...props}>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+                    </svg>
+                ),
+                check: (
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className={className} {...props}>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                )
+            };
+            return icons[name] || null;
+        };
+
+        // Recursive tree builder
+        const buildTreeObject = (treeList) => {
+            const root = {};
+            treeList.forEach(item => {
+                const parts = item.path.split('/');
+                let current = root;
+                parts.forEach((part, index) => {
+                    if (!current[part]) {
+                        current[part] = {
+                            name: part,
+                            path: item.path,
+                            type: (index === parts.length - 1) ? item.type : 'tree',
+                            size: item.size,
+                            children: {}
+                        };
+                    }
+                    current = current[part].children;
+                });
+            });
+            return root;
+        };
+
+        // Main App Component
+        const App = () => {
+            const [url, setUrl] = useState("");
+            const [token, setToken] = useState("");
+            const [geminiKey, setGeminiKey] = useState("");
+            const [loading, setLoading] = useState(false);
+            const [loadingStep, setLoadingStep] = useState("");
+            const [error, setError] = useState(null);
+            
+            const [repoData, setRepoData] = useState(null);
+            const [activeTab, setActiveTab] = useState("overview");
+            
+            // File Explorer State
+            const [treeObj, setTreeObj] = useState({});
+            const [expandedNodes, setExpandedNodes] = useState(new Set());
+            const [selectedFilePath, setSelectedFilePath] = useState(null);
+            const [selectedFileContent, setSelectedFileContent] = useState("");
+            const [fileLoading, setFileLoading] = useState(false);
+            const [isCopied, setIsCopied] = useState(false);
+
+            // Chat State
+            const [chatMessages, setChatMessages] = useState([]);
+            const [chatInput, setChatInput] = useState("");
+            const [chatLoading, setChatLoading] = useState(false);
+            
+            // Custom instructions
+            const [showAdvanced, setShowAdvanced] = useState(false);
+
+            // Preset popular repos
+            const presets = [
+                { name: "HTTPX Client", url: "https://github.com/encode/httpx" },
+                { name: "FastAPI", url: "https://github.com/fastapi/fastapi" },
+                { name: "Textual TUI", url: "https://github.com/Textualize/textual" }
+            ];
+
+            const handleAnalyze = async (targetUrl = url) => {
+                if (!targetUrl) return;
+                setLoading(true);
+                setError(null);
+                setRepoData(null);
+                setSelectedFilePath(null);
+                setSelectedFileContent("");
+                setChatMessages([]);
+                
+                const steps = [
+                    "Parsing repository metadata...",
+                    "Fetching GitHub directory tree...",
+                    "Downloading source code configuration files...",
+                    "Analyzing codebase dependencies...",
+                    "Asking Gemini Flash to generate architecture map and reviews..."
+                ];
+
+                let stepIndex = 0;
+                setLoadingStep(steps[0]);
+                const interval = setInterval(() => {
+                    if (stepIndex < steps.length - 1) {
+                        stepIndex++;
+                        setLoadingStep(steps[stepIndex]);
+                    }
+                }, 3500);
+
+                try {
+                    const response = await axios.post('/api/analyze', {
+                        url: targetUrl,
+                        github_token: token || null,
+                        gemini_api_key: geminiKey || null
+                    });
+                    
+                    setRepoData(response.data);
+                    const parsedTree = buildTreeObject(response.data.tree);
+                    setTreeObj(parsedTree);
+                    
+                    // Pre-expand top-level folders in tree
+                    const initialExpanded = new Set();
+                    Object.keys(parsedTree).forEach(key => {
+                        if (parsedTree[key].type === 'tree') {
+                            initialExpanded.add(key);
+                        }
+                    });
+                    setExpandedNodes(initialExpanded);
+                    
+                } catch (err) {
+                    console.error(err);
+                    setError(err.response?.data?.detail || "An unexpected error occurred during repository analysis.");
+                } finally {
+                    clearInterval(interval);
+                    setLoading(false);
+                }
+            };
+
+            const loadFileContent = async (path) => {
+                if (!repoData) return;
+                setFileLoading(true);
+                setSelectedFilePath(path);
+                try {
+                    const response = await axios.get('/api/file', {
+                        params: {
+                            repo_id: repoData.repo_id,
+                            path: path
+                        }
+                    });
+                    setSelectedFileContent(response.data.content);
+                } catch (err) {
+                    setSelectedFileContent(`// Error loading file contents:\n// ${err.response?.data?.detail || err.message}`);
+                } finally {
+                    setFileLoading(false);
+                }
+            };
+
+            const toggleFolder = (nodeKey) => {
+                const updated = new Set(expandedNodes);
+                if (updated.has(nodeKey)) {
+                    updated.delete(nodeKey);
+                } else {
+                    updated.add(nodeKey);
+                }
+                setExpandedNodes(updated);
+            };
+
+            const handleCopyCode = () => {
+                if (!selectedFileContent) return;
+                navigator.clipboard.writeText(selectedFileContent);
+                setIsCopied(true);
+                setTimeout(() => setIsCopied(false), 2000);
+            };
+
+            const handleSendChatMessage = async (e) => {
+                if (e) e.preventDefault();
+                if (!chatInput.trim() || chatLoading || !repoData) return;
+
+                const userMsg = chatInput.trim();
+                setChatInput("");
+                
+                const updatedHistory = [...chatMessages, { role: "user", content: userMsg }];
+                setChatMessages(updatedHistory);
+                setChatLoading(true);
+
+                try {
+                    const response = await axios.post('/api/chat', {
+                        repo_id: repoData.repo_id,
+                        messages: chatMessages,
+                        user_message: userMsg,
+                        gemini_api_key: geminiKey || null
+                    });
+                    
+                    setChatMessages([...updatedHistory, { role: "model", content: response.data.reply }]);
+                } catch (err) {
+                    setChatMessages([...updatedHistory, { 
+                        role: "model", 
+                        content: `**Error communicating with Gemini chatbot:**\n\n${err.response?.data?.detail || err.message}` 
+                    }]);
+                } finally {
+                    setChatLoading(false);
+                }
+            };
+
+            // Scroll chat to bottom
+            const chatEndRef = useRef(null);
+            useEffect(() => {
+                chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            }, [chatMessages, chatLoading]);
+
+            // File Tree Node rendering
+            const FileTreeNode = ({ name, node, depth = 0, parentKey = "" }) => {
+                const currentKey = parentKey ? `${parentKey}/${name}` : name;
+                const isExpanded = expandedNodes.has(currentKey);
+                const isSelected = selectedFilePath === node.path;
+                const hasChildren = node.children && Object.keys(node.children).length > 0;
+
+                const paddingLeft = `${depth * 12 + 8}px`;
+
+                if (node.type === 'tree') {
+                    return (
+                        <div>
+                            <div 
+                                onClick={() => toggleFolder(currentKey)}
+                                style={{ paddingLeft }}
+                                className="flex items-center gap-2 py-1.5 px-2 hover:bg-dark-cardHover/50 cursor-pointer transition-colors duration-150 rounded text-slate-300 text-sm select-none"
+                            >
+                                <Icon name={isExpanded ? "chevronDown" : "chevronRight"} className="w-3.5 h-3.5 text-slate-500" />
+                                <Icon name={isExpanded ? "folderOpen" : "folder"} className="w-4 h-4" />
+                                <span className="truncate">{name}</span>
+                            </div>
+                            
+                            {isExpanded && hasChildren && (
+                                <div className="mt-0.5">
+                                    {Object.keys(node.children)
+                                        .sort((a, b) => {
+                                            // Folders first
+                                            const nodeA = node.children[a];
+                                            const nodeB = node.children[b];
+                                            if (nodeA.type === 'tree' && nodeB.type !== 'tree') return -1;
+                                            if (nodeA.type !== 'tree' && nodeB.type === 'tree') return 1;
+                                            return a.localeCompare(b);
+                                        })
+                                        .map(childName => (
+                                            <FileTreeNode 
+                                                key={childName}
+                                                name={childName}
+                                                node={node.children[childName]}
+                                                depth={depth + 1}
+                                                parentKey={currentKey}
+                                            />
+                                        ))
+                                    }
+                                </div>
+                            )}
+                        </div>
+                    );
+                } else {
+                    return (
+                        <div 
+                            onClick={() => loadFileContent(node.path)}
+                            style={{ paddingLeft: `${depth * 12 + 22}px` }}
+                            className={`flex items-center gap-2 py-1.5 px-2 cursor-pointer transition-colors duration-150 rounded text-sm ${
+                                isSelected 
+                                    ? 'bg-brand-600/20 text-indigo-400 font-medium border-l-2 border-brand-500' 
+                                    : 'hover:bg-dark-cardHover/50 text-slate-400'
+                            }`}
+                        >
+                            <Icon name="file" className="w-4 h-4" />
+                            <span className="truncate">{name}</span>
+                        </div>
+                    );
+                }
+            };
+
+            return (
+                <div className="flex flex-col min-h-screen">
+                    {/* Header */}
+                    <header className="border-b border-dark-border bg-dark-900/80 backdrop-blur sticky top-0 z-50 px-6 py-4 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-violet-600 flex items-center justify-center shadow-lg shadow-brand-500/20">
+                                <Icon name="sparkles" className="w-5 h-5 text-white" />
+                            </div>
+                            <div>
+                                <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-300">
+                                    AI GitHub Project Assistant
+                                </h1>
+                                <p className="text-[10px] text-slate-500 font-mono">v1.0.0 Powered by Gemini 1.5</p>
+                            </div>
+                        </div>
+                        {repoData && (
+                            <div className="flex items-center gap-4 bg-dark-card px-4 py-2 rounded-lg border border-dark-border">
+                                <img src={repoData.metadata.owner_avatar} className="w-6 h-6 rounded-full" alt="owner" />
+                                <div>
+                                    <div className="text-xs font-semibold text-slate-200">{repoData.owner}/{repoData.repo}</div>
+                                    <div className="text-[10px] font-mono text-slate-500">branch: {repoData.branch}</div>
+                                </div>
+                                <button 
+                                    onClick={() => setRepoData(null)}
+                                    className="ml-2 text-xs text-slate-400 hover:text-rose-400 transition-colors"
+                                >
+                                    Clear
+                                </button>
+                            </div>
+                        )}
+                    </header>
+
+                    {/* Main Content Area */}
+                    <main className="flex-1 flex flex-col p-6 max-w-7xl mx-auto w-full relative">
+                        {!repoData && !loading ? (
+                            /* Hero Landing Page */
+                            <div className="flex-1 flex flex-col items-center justify-center py-12 max-w-2xl mx-auto">
+                                <div className="text-center mb-8">
+                                    <span className="px-3 py-1 text-xs font-semibold text-brand-200 bg-brand-900/40 rounded-full border border-brand-800">
+                                        Analyze Codebases Instantly
+                                    </span>
+                                    <h2 className="text-4xl sm:text-5xl font-black mt-4 leading-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-slate-400">
+                                        Stop digging through repositories manually.
+                                    </h2>
+                                    <p className="text-slate-400 mt-4 text-base sm:text-lg">
+                                        Enter any public GitHub URL to generate documentation, map the architecture, review code health, and converse with the source code.
+                                    </p>
+                                </div>
+
+                                <div className="w-full bg-dark-card border border-dark-border p-6 rounded-2xl shadow-2xl relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 w-64 h-64 bg-brand-600/5 rounded-full blur-3xl pointer-events-none"></div>
+                                    
+                                    <form onSubmit={(e) => { e.preventDefault(); handleAnalyze(); }} className="space-y-4">
+                                        <div>
+                                            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">GitHub Repository URL</label>
+                                            <div className="relative">
+                                                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                                                    <Icon name="github" className="w-5 h-5" />
+                                                </div>
+                                                <input 
+                                                    type="url" 
+                                                    required
+                                                    value={url}
+                                                    onChange={(e) => setUrl(e.target.value)}
+                                                    placeholder="https://github.com/owner/repository"
+                                                    className="block w-full pl-11 pr-4 py-3 bg-dark-900 border border-dark-border rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 text-slate-200 placeholder-slate-500 text-sm transition-all"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <button 
+                                            type="button"
+                                            onClick={() => setShowAdvanced(!showAdvanced)}
+                                            className="text-xs text-brand-500 hover:text-brand-400 flex items-center gap-1 mt-1 transition-colors"
+                                        >
+                                            <span>{showAdvanced ? "Hide" : "Show"} Advanced Settings</span>
+                                            <Icon name={showAdvanced ? "chevronDown" : "chevronRight"} className="w-3 h-3" />
+                                        </button>
+
+                                        {showAdvanced && (
+                                            <div className="pt-2 space-y-3 border-t border-dark-border/40">
+                                                <div>
+                                                    <label className="block text-xs font-medium text-slate-400 mb-1.5">GitHub Token (Optional - Prevents rate limits)</label>
+                                                    <input 
+                                                        type="password"
+                                                        value={token}
+                                                        onChange={(e) => setToken(e.target.value)}
+                                                        placeholder="ghp_xxxxxxxxxxxx"
+                                                        className="block w-full px-3.5 py-2 bg-dark-900 border border-dark-border rounded-lg text-xs text-slate-300 focus:ring-1 focus:ring-brand-500 focus:border-brand-500 transition-all font-mono mb-2"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs font-medium text-slate-400 mb-1.5">Gemini API Key (Optional if backend/.env is set)</label>
+                                                    <input 
+                                                        type="password"
+                                                        value={geminiKey}
+                                                        onChange={(e) => setGeminiKey(e.target.value)}
+                                                        placeholder="AIzaSy..."
+                                                        className="block w-full px-3.5 py-2 bg-dark-900 border border-dark-border rounded-lg text-xs text-slate-300 focus:ring-1 focus:ring-brand-500 focus:border-brand-500 transition-all font-mono"
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <button 
+                                            type="submit"
+                                            className="w-full py-3 px-4 bg-gradient-to-r from-brand-600 to-violet-600 hover:from-brand-700 hover:to-violet-700 text-white font-medium text-sm rounded-xl shadow-lg shadow-brand-500/25 transition-all flex items-center justify-center gap-2 group"
+                                        >
+                                            <span>Analyze Repository</span>
+                                            <Icon name="search" className="w-4 h-4 transition-transform group-hover:scale-110" />
+                                        </button>
+                                    </form>
+
+                                    {error && (
+                                        <div className="mt-4 p-3.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs rounded-xl flex items-start gap-2.5">
+                                            <Icon name="shieldAlert" className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                                            <span>{error}</span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="mt-8 w-full">
+                                    <div className="flex items-center justify-between text-xs text-slate-500 mb-3.5">
+                                        <span className="h-px bg-dark-border/80 flex-1 mr-4"></span>
+                                        <span>Or try one of these public templates</span>
+                                        <span className="h-px bg-dark-border/80 flex-1 ml-4"></span>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                        {presets.map((preset, idx) => (
+                                            <button
+                                                key={idx}
+                                                onClick={() => {
+                                                    setUrl(preset.url);
+                                                    handleAnalyze(preset.url);
+                                                }}
+                                                className="bg-dark-card hover:bg-dark-cardHover border border-dark-border hover:border-brand-500/35 p-3 rounded-xl transition-all duration-200 text-left text-xs group"
+                                            >
+                                                <div className="font-semibold text-slate-300 group-hover:text-brand-200 truncate">{preset.name}</div>
+                                                <div className="text-[10px] text-slate-500 truncate mt-1">{preset.url.replace("https://github.com/", "")}</div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        ) : loading ? (
+                            /* Detailed Loading Screen */
+                            <div className="flex-1 flex flex-col items-center justify-center py-20">
+                                <div className="relative flex items-center justify-center w-24 h-24 mb-8">
+                                    <div className="absolute inset-0 rounded-full border-4 border-slate-800"></div>
+                                    <div className="absolute inset-0 rounded-full border-4 border-t-brand-500 border-r-violet-500 animate-spin"></div>
+                                    <Icon name="github" className="w-10 h-10 text-brand-500" />
+                                </div>
+                                <h3 className="text-xl font-bold text-slate-200">Analyzing Repository</h3>
+                                <p className="text-sm text-slate-400 mt-2 font-mono h-6 animate-pulse">{loadingStep}</p>
+                                <p className="text-xs text-slate-500 mt-1">This typically takes 20-40 seconds for model generation.</p>
+                            </div>
+                        ) : (
+                            /* Loaded Dashboard Interface */
+                            <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[550px]">
+                                
+                                {/* Left Side: File tree visual representation */}
+                                <div className="lg:col-span-4 bg-dark-card border border-dark-border rounded-xl flex flex-col overflow-hidden max-h-[680px]">
+                                    <div className="p-4 border-b border-dark-border bg-dark-900/50 flex items-center justify-between">
+                                        <div className="flex items-center gap-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                                            <Icon name="folder" className="w-4 h-4" />
+                                            <span>Workspace Files</span>
+                                        </div>
+                                        <div className="text-[10px] bg-dark-900 px-2 py-0.5 rounded font-mono text-slate-500">
+                                            {repoData.tree.filter(n=>n.type==='blob').length} files
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Scrollable tree viewer */}
+                                    <div className="flex-1 overflow-y-auto p-3 font-mono">
+                                        {Object.keys(treeObj).length > 0 ? (
+                                            Object.keys(treeObj)
+                                                .sort((a, b) => {
+                                                    const nodeA = treeObj[a];
+                                                    const nodeB = treeObj[b];
+                                                    if (nodeA.type === 'tree' && nodeB.type !== 'tree') return -1;
+                                                    if (nodeA.type !== 'tree' && nodeB.type === 'tree') return 1;
+                                                    return a.localeCompare(b);
+                                                })
+                                                .map(name => (
+                                                    <FileTreeNode 
+                                                        key={name}
+                                                        name={name}
+                                                        node={treeObj[name]}
+                                                    />
+                                                ))
+                                        ) : (
+                                            <div className="text-xs text-slate-500 p-4 text-center">No files detected</div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Right Side: Tabs + Code Display */}
+                                <div className="lg:col-span-8 flex flex-col space-y-6 max-h-[680px]">
+                                    
+                                    {/* Dashboard Tabs & Metrics Header */}
+                                    <div className="bg-dark-card border border-dark-border rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                                        <div className="flex border-b sm:border-b-0 border-dark-border pb-3 sm:pb-0 gap-2">
+                                            {[
+                                                { id: "overview", label: "Overview", icon: "info" },
+                                                { id: "tech", label: "Tech Stack", icon: "sparkles" },
+                                                { id: "review", label: "Code Review", icon: "shieldAlert" },
+                                                { id: "chat", label: "Chat Assistant", icon: "terminal" }
+                                            ].map(tab => (
+                                                <button
+                                                    key={tab.id}
+                                                    onClick={() => {
+                                                        setActiveTab(tab.id);
+                                                        // When switching tabs, clean code view path if not in files view
+                                                    }}
+                                                    className={`flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-lg transition-all ${
+                                                        activeTab === tab.id
+                                                            ? 'bg-brand-600 text-white shadow-md shadow-brand-600/25'
+                                                            : 'text-slate-400 hover:text-slate-200 hover:bg-dark-cardHover'
+                                                    }`}
+                                                >
+                                                    <Icon name={tab.icon} className="w-3.5 h-3.5" />
+                                                    <span>{tab.label}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+
+                                        <div className="flex items-center gap-3.5 text-xs text-slate-400 self-end sm:self-auto font-mono">
+                                            <div className="flex items-center gap-1">
+                                                <Icon name="star" className="w-4 h-4 text-amber-500" />
+                                                <span className="font-semibold text-slate-200">{repoData.metadata.stars}</span> stars
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                                <Icon name="fork" className="w-4 h-4 text-indigo-400" />
+                                                <span className="font-semibold text-slate-200">{repoData.metadata.forks}</span> forks
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Main Panel Content (Dynamically shown based on selectedTab OR if a file is clicked, file contents overrides) */}
+                                    <div className="bg-dark-card border border-dark-border rounded-xl flex-1 flex flex-col overflow-hidden">
+                                        
+                                        {/* If a file is selected, show the code viewer */}
+                                        {selectedFilePath ? (
+                                            <div className="flex-1 flex flex-col overflow-hidden">
+                                                {/* Code View Header */}
+                                                <div className="p-3 border-b border-dark-border bg-dark-900/50 flex items-center justify-between">
+                                                    <div className="flex items-center gap-2 text-xs font-mono text-slate-300 truncate pr-4">
+                                                        <Icon name="file" className="w-4 h-4 text-slate-500" />
+                                                        <span className="font-semibold text-slate-400">{selectedFilePath.split('/').slice(0, -1).join('/')}/</span>
+                                                        <span className="text-white font-bold">{selectedFilePath.split('/').pop()}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <button 
+                                                            onClick={handleCopyCode}
+                                                            className="flex items-center gap-1.5 px-2.5 py-1 bg-dark-card hover:bg-dark-cardHover border border-dark-border text-[10px] text-slate-400 hover:text-slate-200 rounded transition-colors"
+                                                        >
+                                                            <Icon name={isCopied ? "check" : "copy"} className="w-3 h-3" />
+                                                            <span>{isCopied ? "Copied" : "Copy"}</span>
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => setSelectedFilePath(null)}
+                                                            className="text-slate-500 hover:text-slate-300 p-1"
+                                                        >
+                                                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                {/* Code viewer display area */}
+                                                <div className="flex-1 overflow-auto p-4 bg-dark-950 font-mono text-xs text-slate-300 relative">
+                                                    {fileLoading ? (
+                                                        <div className="absolute inset-0 flex items-center justify-center bg-dark-950/80">
+                                                            <div className="flex flex-col items-center gap-2">
+                                                                <div className="w-6 h-6 border-2 border-t-indigo-500 border-slate-700 rounded-full animate-spin"></div>
+                                                                <span className="text-[10px] text-slate-500">Loading contents...</span>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <pre className="whitespace-pre select-text leading-relaxed">
+                                                            <code>
+                                                                {selectedFileContent.split('\n').map((line, idx) => (
+                                                                    <div key={idx} className="table-row">
+                                                                        <span className="table-cell select-none text-right pr-4 text-slate-600 text-[10px] w-8">{idx + 1}</span>
+                                                                        <span className="table-cell">{line}</span>
+                                                                    </div>
+                                                                ))}
+                                                            </code>
+                                                        </pre>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            /* Regular tab content rendering */
+                                            <div className="flex-1 overflow-y-auto p-5 select-text">
+                                                
+                                                {/* 1. OVERVIEW / README TAB */}
+                                                {activeTab === "overview" && (
+                                                    <div className="space-y-6">
+                                                        <div>
+                                                            <h3 className="text-lg font-bold text-white mb-2">Repository Summary</h3>
+                                                            <p className="text-slate-300 text-sm leading-relaxed">{repoData.analysis.summary}</p>
+                                                        </div>
+
+                                                        <div className="border-t border-dark-border/60 pt-5">
+                                                            <h3 className="text-lg font-bold text-white mb-3">Key Features</h3>
+                                                            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                                                                {repoData.analysis.features.map((feat, idx) => (
+                                                                    <li key={idx} className="flex items-start gap-2 text-slate-300">
+                                                                        <span className="text-brand-500 font-bold mt-0.5">•</span>
+                                                                        <span>{feat}</span>
+                                                                    </li>
+                                                                ))}
+                                                            </ul>
+                                                        </div>
+
+                                                        <div className="border-t border-dark-border/60 pt-5">
+                                                            <h3 className="text-lg font-bold text-white mb-3">Setup & Installation</h3>
+                                                            <div 
+                                                                className="markdown-body text-sm"
+                                                                dangerouslySetInnerHTML={{ __html: marked.parse(repoData.analysis.setup_instructions) }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* 2. TECH STACK & ARCHITECTURE TAB */}
+                                                {activeTab === "tech" && (
+                                                    <div className="space-y-6">
+                                                        <div>
+                                                            <h3 className="text-base font-semibold text-slate-400 uppercase tracking-wider mb-4">Detected Tech Stack</h3>
+                                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                                {[
+                                                                    { title: "Languages", items: repoData.analysis.tech_stack.languages, color: "from-blue-500/10 to-indigo-500/10 border-blue-500/20 text-blue-400" },
+                                                                    { title: "Frameworks / Libraries", items: repoData.analysis.tech_stack.frameworks, color: "from-purple-500/10 to-violet-500/10 border-purple-500/20 text-purple-400" },
+                                                                    { title: "Databases / Storage", items: repoData.analysis.tech_stack.databases, color: "from-emerald-500/10 to-teal-500/10 border-emerald-500/20 text-emerald-400" },
+                                                                    { title: "Tools & Utilities", items: repoData.analysis.tech_stack.tools_utilities, color: "from-amber-500/10 to-orange-500/10 border-amber-500/20 text-amber-400" }
+                                                                ].map((category, idx) => (
+                                                                    category.items && category.items.length > 0 && (
+                                                                        <div key={idx} className={`p-4 bg-gradient-to-tr border rounded-xl ${category.color.split(" ").slice(0, 3).join(" ")}`}>
+                                                                            <div className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">{category.title}</div>
+                                                                            <div className="flex flex-wrap gap-1.5">
+                                                                                {category.items.map((item, itemIdx) => (
+                                                                                    <span key={itemIdx} className={`px-2.5 py-1 text-xs rounded-md border font-mono ${category.color.split(" ").slice(3).join(" ")}`}>
+                                                                                        {item}
+                                                                                    </span>
+                                                                                ))}
+                                                                            </div>
+                                                                        </div>
+                                                                    )
+                                                                ))}
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="border-t border-dark-border/60 pt-5">
+                                                            <h3 className="text-lg font-bold text-white mb-3">System Architecture</h3>
+                                                            <div 
+                                                                className="markdown-body text-sm"
+                                                                dangerouslySetInnerHTML={{ __html: marked.parse(repoData.analysis.architecture) }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* 3. CODE REVIEW TAB */}
+                                                {activeTab === "review" && (
+                                                    <div className="space-y-4">
+                                                        <div>
+                                                            <h3 className="text-lg font-bold text-white">Code Review & Health Report</h3>
+                                                            <p className="text-xs text-slate-400 mt-1 mb-4">Gemini scanned configuration and key codebases for recommendations.</p>
+                                                        </div>
+
+                                                        <div className="space-y-4">
+                                                            {repoData.analysis.code_quality_reviews.map((finding, idx) => {
+                                                                const severityColors = {
+                                                                    HIGH: "bg-rose-500/10 border-rose-500/20 text-rose-400",
+                                                                    MEDIUM: "bg-amber-500/10 border-amber-500/20 text-amber-400",
+                                                                    LOW: "bg-blue-500/10 border-blue-500/20 text-blue-400"
+                                                                };
+                                                                return (
+                                                                    <div key={idx} className="bg-dark-900 border border-dark-border/70 rounded-xl p-4 space-y-3">
+                                                                        <div className="flex items-start justify-between gap-3 flex-wrap">
+                                                                            <div>
+                                                                                <span className={`text-[10px] font-bold font-mono px-2 py-0.5 border rounded-full uppercase ${severityColors[finding.severity]}`}>
+                                                                                    {finding.severity} Severity
+                                                                                </span>
+                                                                                <h4 className="text-sm font-bold text-white mt-2">{finding.title}</h4>
+                                                                            </div>
+                                                                            {finding.file_path && (
+                                                                                <span className="text-[10px] font-mono bg-dark-card border border-dark-border px-2 py-1 rounded text-slate-400">
+                                                                                    {finding.file_path}
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                        <p className="text-slate-300 text-xs leading-relaxed">{finding.description}</p>
+                                                                        
+                                                                        {/* Before / After comparison if exists */}
+                                                                        {finding.code_snippet_before && (
+                                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                                                                                <div className="border border-rose-500/10 rounded-lg overflow-hidden">
+                                                                                    <div className="bg-rose-500/5 px-3 py-1.5 text-[10px] font-mono text-rose-400 font-bold border-b border-rose-500/10">Before / Issue</div>
+                                                                                    <pre className="p-3 bg-dark-950 font-mono text-[10px] overflow-x-auto text-slate-400 whitespace-pre">
+                                                                                        <code>{finding.code_snippet_before}</code>
+                                                                                    </pre>
+                                                                                </div>
+                                                                                <div className="border border-emerald-500/10 rounded-lg overflow-hidden">
+                                                                                    <div className="bg-emerald-500/5 px-3 py-1.5 text-[10px] font-mono text-emerald-400 font-bold border-b border-emerald-500/10">After / Recommendation</div>
+                                                                                    <pre className="p-3 bg-dark-950 font-mono text-[10px] overflow-x-auto text-slate-300 whitespace-pre">
+                                                                                        <code>{finding.code_snippet_after}</code>
+                                                                                    </pre>
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* 4. CHAT ASSISTANT TAB */}
+                                                {activeTab === "chat" && (
+                                                    <div className="flex flex-col h-[520px] -m-5">
+                                                        {/* Message list area */}
+                                                        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                                                            {chatMessages.length === 0 ? (
+                                                                <div className="h-full flex flex-col items-center justify-center text-center p-8 max-w-sm mx-auto">
+                                                                    <div className="w-12 h-12 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center rounded-xl mb-4">
+                                                                        <Icon name="terminal" className="w-6 h-6" />
+                                                                    </div>
+                                                                    <h4 className="text-sm font-bold text-white">Ask questions about this repo</h4>
+                                                                    <p className="text-xs text-slate-500 mt-2">
+                                                                        Query files, structures, code flows, or logic inside {repoData.owner}/{repoData.repo}.
+                                                                    </p>
+                                                                    
+                                                                    {/* Quick suggest chips */}
+                                                                    <div className="mt-6 flex flex-col gap-2 w-full">
+                                                                        {[
+                                                                            "Explain the core components of the repository.",
+                                                                            "Which file is the entry point?",
+                                                                            "What are the project dependencies?",
+                                                                            "Are there any potential security vulnerabilities?"
+                                                                        ].map((promptText, idx) => (
+                                                                            <button
+                                                                                key={idx}
+                                                                                onClick={() => {
+                                                                                    setChatInput(promptText);
+                                                                                }}
+                                                                                className="text-left py-2 px-3 bg-dark-900 hover:bg-dark-cardHover border border-dark-border text-xs text-slate-300 rounded-lg hover:text-brand-300 transition-colors"
+                                                                            >
+                                                                                {promptText}
+                                                                            </button>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                chatMessages.map((msg, idx) => {
+                                                                    const isUser = msg.role === "user";
+                                                                    return (
+                                                                        <div key={idx} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+                                                                            <div className={`max-w-[85%] rounded-2xl p-4 shadow ${
+                                                                                isUser 
+                                                                                    ? 'bg-brand-600 text-white rounded-br-none' 
+                                                                                    : 'bg-dark-900 border border-dark-border text-slate-200 rounded-bl-none'
+                                                                            }`}>
+                                                                                <div className="text-[10px] font-mono font-bold tracking-wider uppercase mb-1.5 opacity-50">
+                                                                                    {isUser ? "You" : "Gemini"}
+                                                                                </div>
+                                                                                <div 
+                                                                                    className="markdown-body text-xs whitespace-pre-wrap leading-relaxed"
+                                                                                    dangerouslySetInnerHTML={{ 
+                                                                                        __html: isUser ? msg.content : marked.parse(msg.content) 
+                                                                                    }}
+                                                                                />
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })
+                                                            )}
+                                                            {chatLoading && (
+                                                                <div className="flex justify-start">
+                                                                    <div className="bg-dark-900 border border-dark-border rounded-2xl rounded-bl-none p-4 flex items-center gap-2 shadow">
+                                                                        <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                                                                        <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                                                                        <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                            <div ref={chatEndRef} />
+                                                        </div>
+
+                                                        {/* Chat Input field */}
+                                                        <form onSubmit={handleSendChatMessage} className="p-3 border-t border-dark-border bg-dark-900/50 flex gap-2">
+                                                            <input 
+                                                                type="text"
+                                                                value={chatInput}
+                                                                onChange={(e) => setChatInput(e.target.value)}
+                                                                placeholder="Ask a question about the codebase..."
+                                                                className="flex-1 px-3.5 py-2.5 bg-dark-950 border border-dark-border rounded-xl text-xs text-slate-200 focus:ring-1 focus:ring-brand-500 focus:border-brand-500 placeholder-slate-500 transition-all font-sans"
+                                                            />
+                                                            <button 
+                                                                type="submit"
+                                                                disabled={chatLoading || !chatInput.trim()}
+                                                                className="px-4 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-medium text-xs rounded-xl shadow-md transition-colors flex items-center gap-1.5"
+                                                            >
+                                                                <span>Send</span>
+                                                                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className="w-3.5 h-3.5"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9-7-9-7-9 7 9 7z" /></svg>
+                                                            </button>
+                                                        </form>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </main>
+
+                    {/* Footer */}
+                    <footer className="border-t border-dark-border/40 py-6 text-center text-xs text-slate-600 bg-dark-950/20 mt-12">
+                        <div className="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <div>AI GitHub Project Assistant &copy; 2026. Made with React, FastAPI, & Gemini API.</div>
+                            <div className="flex gap-4">
+                                <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="hover:text-slate-400 transition-colors">GitHub API docs</a>
+                                <a href="https://aistudio.google.com" target="_blank" rel="noopener noreferrer" className="hover:text-slate-400 transition-colors">Gemini API Portal</a>
+                            </div>
+                        </div>
+                    </footer>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
